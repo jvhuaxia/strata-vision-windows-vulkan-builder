@@ -7,7 +7,8 @@ if ($env:GITHUB_ACTIONS -ne 'true') { throw 'Cloud build only: run this script t
 $root = $PSScriptRoot
 $source = Join-Path $root 'source/strata'
 $llama = Join-Path $root 'source/llama.cpp'
-$build = Join-Path $root 'build-vision'
+# Keep MSBuild's nested shader-generator paths below legacy MAX_PATH.
+$build = Join-Path $env:RUNNER_TEMP 'sv'
 $package = Join-Path $root 'package'
 $output = Join-Path $root 'output'
 $diagnostics = Join-Path $root 'diagnostics'
