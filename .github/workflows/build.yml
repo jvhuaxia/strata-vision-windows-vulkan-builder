@@ -1,0 +1,64 @@
+name: Windows Vulkan vision encoder
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [build.ps1, .github/workflows/build.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-vulkan-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      STRATA_COMMIT: fb58e0dbc8399662c0e47c76578c6e878b14f6cf
+      LLAMA_COMMIT: 3cf03257f219afbe7334045ff7c6a06ac68c627d
+      VULKAN_VERSION: 1.4.363.0
+      VULKAN_INSTALLER_SHA256: 94a82d378f7a5e3e54c9db7d2fb7016af136e14ac0a18dbf0f2f67a36352d141
+    steps:
+      - name: Checkout builder
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Checkout pinned Strata v0.1.41
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: Niko1221/Strata
+          ref: ${{ env.STRATA_COMMIT }}
+          path: source/strata
+          persist-credentials: false
+      - name: Checkout matching llama.cpp
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ env.LLAMA_COMMIT }}
+          path: source/llama.cpp
+          persist-credentials: false
+      - name: Build and validate portable encoder
+        run: ./build.ps1
+      - name: Upload encoder ZIP and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: strata-vision-windows-x64-vulkan-v0.1.41
+          path: output/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-diagnostics-${{ github.run_id }}
+          path: diagnostics/*
+          if-no-files-found: ignore
+          retention-days: 14
