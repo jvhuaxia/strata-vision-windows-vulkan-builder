@@ -93,9 +93,12 @@ try {
 } finally { $env:PATH = $savedPath }
 $usage | Set-Content (Join-Path $diagnostics 'startup-smoke.txt') -Encoding utf8
 if ($code -ne 2 -or ($usage -join "`n") -notmatch 'usage: strata-vision') { throw "Encoder startup smoke failed: $code" }
+Write-Host 'PE dependency check and startup usage check passed.'
 
 Copy-Item (Join-Path $source 'LICENSE') (Join-Path $package 'Strata-LICENSE.txt')
 Copy-Item (Join-Path $llama 'LICENSE') (Join-Path $package 'llama.cpp-LICENSE.txt')
+$cmakeVersionLines = @(& cmake --version)
+if ($LASTEXITCODE -ne 0) { throw 'Cannot read CMake version' }
 $info = [ordered]@{
     source = 'community-github-actions'; backend = 'vulkan'; platform = 'windows-x64'; strata_version = '0.1.41'
     strata_commit = $env:STRATA_COMMIT; llama_commit = $env:LLAMA_COMMIT
@@ -103,7 +106,7 @@ $info = [ordered]@{
     portable = $true; cpu_baseline = 'AVX2'; msvc_runtime = 'static'; dependencies = $dependencies
     built_at_utc = [DateTime]::UtcNow.ToString('o'); workflow_run = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
     validation = @{ source_pins = 'passed'; cmake_flags = 'passed'; pe_dependencies = 'passed'; startup_usage = 'passed'; gpu_image_encoding = 'not-tested' }
-    cmake = (& cmake --version | Select-Object -First 1); msvc_tools = $msvc.Name
+    cmake = $cmakeVersionLines[0]; msvc_tools = $msvc.Name
 }
 $info | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $package 'BUILD.json') -Encoding utf8
 @'
@@ -135,3 +138,6 @@ Compress-Archive -Path (Join-Path $package '*') -DestinationPath $zip -Compressi
 - Download the encoder artifact below (contains ZIP + SHA-256).
 - Build/startup checks passed. GPU image encoding still needs a local test.
 "@ | Add-Content $env:GITHUB_STEP_SUMMARY
+Write-Host "Package complete: $zip"
+# The usage smoke intentionally returned 2; report success only after all checks.
+$global:LASTEXITCODE = 0
